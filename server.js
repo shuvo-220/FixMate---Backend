@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { connectDB } = require("./config/db");
+const serviceRoutes = require('./routes/serviceRoutes');
 
 const app = express();
 
@@ -27,9 +28,6 @@ const startServer = async () => {
 
     app.use(express.json());
 
-    // Test routes
-    const testRoutes = require("./routes/testRoute");
-    app.use("/api/test", testRoutes);
 
     // Home route
     app.get("/", (req, res) => {
@@ -40,6 +38,9 @@ const startServer = async () => {
     });
 
     const PORT = process.env.PORT || 5000;
+
+
+    app.use("/api/services", serviceRoutes);
 
     app.listen(PORT, () => {
       console.log(`FixMate server running on port ${PORT}`);

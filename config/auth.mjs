@@ -33,17 +33,43 @@ export const createAuth = () => {
           defaultValue: "customer",
           input: false,
         },
+
         phone: {
           type: "string",
-          required: true,
+          required: false,
         },
+
         area: {
           type: "string",
-          required: true,
+          required: false,
         },
+
         bio: {
           type: "string",
           required: false,
+        },
+      },
+    },
+
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user, ctx) => {
+            const requestedRole = ctx?.body?.role;
+
+            const allowedRoles = ["customer", "technician"];
+
+            const safeRole = allowedRoles.includes(requestedRole)
+              ? requestedRole
+              : "customer";
+
+            return {
+              data: {
+                ...user,
+                role: safeRole,
+              },
+            };
+          },
         },
       },
     },
@@ -53,6 +79,7 @@ export const createAuth = () => {
         jwt: {
           definePayload: ({ user }) => ({
             id: user.id,
+            name: user.name,
             email: user.email,
             role: user.role,
           }),
