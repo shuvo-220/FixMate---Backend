@@ -6,7 +6,6 @@ const { connectDB } = require("./config/db");
 
 const app = express();
 
-// Middleware
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
@@ -14,28 +13,40 @@ app.use(
   })
 );
 
-app.use(express.json());
-
-// Test API Route
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "FixMate API is running!",
-  });
-});
-
-// Start Server
 const startServer = async () => {
   try {
     await connectDB();
+
+    const { createAuth } = await import("./config/auth.mjs");
+    const { toNodeHandler } = await import("better-auth/node");
+
+    const auth = createAuth();
+
+    // Better Auth
+    app.all("/api/auth/*splat", toNodeHandler(auth));
+
+    app.use(express.json());
+
+    // Test routes
+    const testRoutes = require("./routes/testRoute");
+    app.use("/api/test", testRoutes);
+
+    // Home route
+    app.get("/", (req, res) => {
+      res.status(200).json({
+        success: true,
+        message: "FixMate API is running!",
+      });
+    });
 
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, () => {
       console.log(`FixMate server running on port ${PORT}`);
+      console.log("Better Auth is ready!");
     });
   } catch (error) {
-    console.error("Server startup failed:", error.message);
+    console.error("Server startup failed:", error);
     process.exit(1);
   }
 };
