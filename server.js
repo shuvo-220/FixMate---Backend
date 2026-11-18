@@ -4,6 +4,8 @@ const express = require("express");
 const cors = require("cors");
 const { connectDB } = require("./config/db");
 const serviceRoutes = require('./routes/serviceRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const bookingRoutes = require("./routes/bookingRoutes");
 
 const app = express();
 
@@ -41,6 +43,8 @@ const startServer = async () => {
 
 
     app.use("/api/services", serviceRoutes);
+    app.use("/api/admin", adminRoutes);
+    app.use("/api/bookings", bookingRoutes);
 
     app.listen(PORT, () => {
       console.log(`FixMate server running on port ${PORT}`);
