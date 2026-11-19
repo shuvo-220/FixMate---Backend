@@ -1,10 +1,11 @@
 const Booking = require("../models/bookingModel");
+const Payment = require("../models/paymentModel");
 const getStripe = require("../config/stripe");
 
 // Create Stripe Checkout Session
 const createCheckoutSession = async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId } = req.body || {};
 
     if (!bookingId) {
       return res.status(400).json({
@@ -13,7 +14,7 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Find booking
+    // Find booking belonging to logged-in customer
     const booking = await Booking.findOne({
       _id: bookingId,
       customerEmail: req.user.email,
@@ -59,8 +60,6 @@ const createCheckoutSession = async (req, res) => {
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-
-      payment_method_types: ["card"],
 
       customer_email: booking.customerEmail,
 
@@ -111,6 +110,142 @@ const createCheckoutSession = async (req, res) => {
   }
 };
 
+// Stripe Webhook
+const handleStripeWebhook = async (req, res) => {
+  const stripe = getStripe();
+
+  let event;
+
+  try {
+    const signature = req.headers["stripe-signature"];
+
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (error) {
+    console.error("Webhook Signature Error:", error.message);
+
+    return res.status(400).send(
+      `Webhook Error: ${error.message}`
+    );
+  }
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+
+      // Confirm payment
+      if (session.payment_status !== "paid") {
+        return res.status(200).json({
+          received: true,
+          message: "Payment is not completed yet.",
+        });
+      }
+
+      const bookingId = session.metadata?.bookingId;
+      const customerEmail = session.metadata?.customerEmail;
+
+      if (!bookingId || !customerEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Booking information missing from Stripe session!",
+        });
+      }
+
+      const booking = await Booking.findOne({
+        _id: bookingId,
+        customerEmail,
+      });
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found!",
+        });
+      }
+
+      // Verify booking status and amount
+      const expectedAmount = Math.round(
+        Number(booking.finalAmount) * 100
+      );
+
+      if (
+        booking.status !== "completed" ||
+        session.currency !== "usd" ||
+        session.amount_total !== expectedAmount
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment verification failed!",
+        });
+      }
+
+      // Prevent duplicate payment records
+      const existingPayment = await Payment.findOne({
+        stripeSessionId: session.id,
+      });
+
+      if (existingPayment) {
+        await Booking.updateOne(
+          { _id: booking._id },
+          { $set: { paymentStatus: "paid" } }
+        );
+
+        return res.status(200).json({
+          received: true,
+          message: "Payment already processed!",
+        });
+      }
+
+      // Save verified payment
+      await Payment.create({
+        bookingId: booking._id,
+        serviceTitle: booking.serviceTitle,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        technicianName: booking.technicianName,
+        technicianEmail: booking.technicianEmail,
+        amount: booking.finalAmount,
+        currency: "usd",
+        transactionId: session.payment_intent,
+        stripeSessionId: session.id,
+        paymentStatus: "paid",
+        paidAt: new Date(),
+      });
+
+      // Update booking payment status
+      await Booking.updateOne(
+        {
+          _id: booking._id,
+          status: "completed",
+          paymentStatus: "unpaid",
+        },
+        {
+          $set: {
+            paymentStatus: "paid",
+          },
+        }
+      );
+
+      console.log("Stripe payment processed:", session.id);
+    }
+
+    return res.status(200).json({
+      received: true,
+    });
+  } catch (error) {
+    console.error("Stripe Webhook Processing Error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Webhook processing failed!",
+    });
+  }
+};
+
 module.exports = {
   createCheckoutSession,
+  handleStripeWebhook,
 };

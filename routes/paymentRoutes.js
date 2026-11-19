@@ -8,7 +8,7 @@ const {
   createCheckoutSession,
 } = require("../controllers/paymentController");
 
-// Customer Payment Route
+// Customer Checkout Session
 router.post(
   "/create-checkout-session",
   verifyToken,
