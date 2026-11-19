@@ -30,4 +30,4 @@ router.patch("/services/:id/reject", rejectService);
 // Get All Payments (Admin Only)
 router.get("/payments", getAllPayments);
 
-module.exports = router;
+module.exports = router; 
