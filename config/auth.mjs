@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
+import {
+  createAuthMiddleware,
+  APIError,
+} from "better-auth/api";
 
 export const createAuth = () => {
   const db = mongoose.connection.db;
@@ -22,10 +26,14 @@ export const createAuth = () => {
       process.env.CLIENT_URL || "http://localhost:3000",
     ],
 
+    // Email and Password Authentication
     emailAndPassword: {
       enabled: true,
+      minPasswordLength: 6,
+      maxPasswordLength: 128,
     },
 
+    // User Additional Fields
     user: {
       additionalFields: {
         role: {
@@ -51,13 +59,78 @@ export const createAuth = () => {
       },
     },
 
+    // Signup Validation
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/sign-up/email") {
+          return;
+        }
+
+        const { name, email, password } = ctx.body || {};
+
+        // Required Fields Validation
+        if (
+          typeof name !== "string" ||
+          !name.trim() ||
+          typeof email !== "string" ||
+          !email.trim() ||
+          typeof password !== "string"
+        ) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Name, email and password are required!",
+          });
+        }
+
+        // Email Format Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!emailRegex.test(email.trim())) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Please provide a valid email address!",
+          });
+        }
+
+        // Minimum Password Length
+        if (password.length < 6) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Password must be at least 6 characters long!",
+          });
+        }
+
+        // Maximum Password Length
+        if (password.length > 128) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Password cannot exceed 128 characters!",
+          });
+        }
+
+        // Uppercase Validation
+        if (!/[A-Z]/.test(password)) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Password must contain at least one uppercase letter!",
+          });
+        }
+
+        // Lowercase Validation
+        if (!/[a-z]/.test(password)) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Password must contain at least one lowercase letter!",
+          });
+        }
+      }),
+    },
+
+    // Secure User Role Validation
     databaseHooks: {
       user: {
         create: {
           before: async (user, ctx) => {
             const requestedRole = ctx?.body?.role;
 
-            const allowedRoles = ["customer", "technician"];
+            const allowedRoles = [
+              "customer",
+              "technician",
+            ];
 
             const safeRole = allowedRoles.includes(requestedRole)
               ? requestedRole
@@ -74,6 +147,7 @@ export const createAuth = () => {
       },
     },
 
+    // JWT Plugin
     plugins: [
       jwt({
         jwt: {
