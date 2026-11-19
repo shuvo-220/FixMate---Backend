@@ -38,18 +38,6 @@ const verifyToken = async (req, res, next) => {
       audience: baseURL,
     });
 
-    // 6. Debug JWT Payload
-    console.log("========== JWT PAYLOAD ==========");
-
-    console.log({
-      id: payload.id,
-      name: payload.name,
-      email: payload.email,
-      role: payload.role,
-    });
-
-    console.log("=================================");
-
     // 7. Store User Information
     req.user = {
       id: payload.id || payload.sub,
