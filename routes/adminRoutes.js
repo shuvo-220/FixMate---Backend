@@ -11,6 +11,7 @@ const {
   rejectService,
   getAllUsers,
   updateUserRole,
+  getAllBookings,
 } = require("../controllers/adminController");
 
 const {
@@ -26,10 +27,11 @@ router.patch("/users/:id/role", updateUserRole);
 
 // Service Management
 router.get("/pending-services", getPendingServices);
-
 router.patch("/services/:id/approve", approveService);
-
 router.patch("/services/:id/reject", rejectService);
+
+// Booking Management
+router.get("/bookings", getAllBookings);
 
 // Payment Management
 router.get("/payments", getAllPayments);

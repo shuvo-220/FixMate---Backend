@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const Service = require("../models/serviceModel");
+const Booking = require("../models/bookingModel");
 
 // Better Auth User Collection
 const getUserCollection = () => {
@@ -161,7 +162,6 @@ const updateUserRole = async (req, res) => {
     const { role } = req.body;
     const { id } = req.params;
 
-    // Validate role
     const allowedRoles = ["customer", "technician"];
 
     if (!allowedRoles.includes(role)) {
@@ -243,10 +243,30 @@ const updateUserRole = async (req, res) => {
   }
 };
 
+// 6. Get All Bookings (Admin)
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find({})
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      total: bookings.length,
+      bookings,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getPendingServices,
   approveService,
   rejectService,
   getAllUsers,
   updateUserRole,
+  getAllBookings,
 };
