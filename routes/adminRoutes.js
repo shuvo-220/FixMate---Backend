@@ -9,6 +9,8 @@ const {
   getPendingServices,
   approveService,
   rejectService,
+  getAllUsers,
+  updateUserRole,
 } = require("../controllers/adminController");
 
 const {
@@ -18,16 +20,18 @@ const {
 // All routes require Admin authentication
 router.use(verifyToken, verifyAdmin);
 
-// Get Pending Services
+// User Management
+router.get("/users", getAllUsers);
+router.patch("/users/:id/role", updateUserRole);
+
+// Service Management
 router.get("/pending-services", getPendingServices);
 
-// Approve Service
 router.patch("/services/:id/approve", approveService);
 
-// Reject Service
 router.patch("/services/:id/reject", rejectService);
 
-// Get All Payments (Admin Only)
+// Payment Management
 router.get("/payments", getAllPayments);
 
-module.exports = router; 
+module.exports = router;
