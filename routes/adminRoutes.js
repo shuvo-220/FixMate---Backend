@@ -11,6 +11,10 @@ const {
   rejectService,
 } = require("../controllers/adminController");
 
+const {
+  getAllPayments,
+} = require("../controllers/paymentController");
+
 // All routes require Admin authentication
 router.use(verifyToken, verifyAdmin);
 
@@ -22,5 +26,8 @@ router.patch("/services/:id/approve", approveService);
 
 // Reject Service
 router.patch("/services/:id/reject", rejectService);
+
+// Get All Payments (Admin Only)
+router.get("/payments", getAllPayments);
 
 module.exports = router;

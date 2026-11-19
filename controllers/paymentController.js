@@ -14,7 +14,6 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Find booking belonging to logged-in customer
     const booking = await Booking.findOne({
       _id: bookingId,
       customerEmail: req.user.email,
@@ -27,7 +26,6 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Payment is allowed only after service completion
     if (booking.status !== "completed") {
       return res.status(400).json({
         success: false,
@@ -35,7 +33,6 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Check payment status
     if (booking.paymentStatus === "paid") {
       return res.status(400).json({
         success: false,
@@ -57,10 +54,8 @@ const createCheckoutSession = async (req, res) => {
     const clientURL =
       process.env.CLIENT_URL || "http://localhost:3000";
 
-    // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-
       customer_email: booking.customerEmail,
 
       line_items: [
@@ -90,7 +85,6 @@ const createCheckoutSession = async (req, res) => {
       },
 
       success_url: `${clientURL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-
       cancel_url: `${clientURL}/payment/cancel`,
     });
 
@@ -136,7 +130,6 @@ const handleStripeWebhook = async (req, res) => {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
 
-      // Confirm payment
       if (session.payment_status !== "paid") {
         return res.status(200).json({
           received: true,
@@ -166,7 +159,6 @@ const handleStripeWebhook = async (req, res) => {
         });
       }
 
-      // Verify booking status and amount
       const expectedAmount = Math.round(
         Number(booking.finalAmount) * 100
       );
@@ -199,7 +191,6 @@ const handleStripeWebhook = async (req, res) => {
         });
       }
 
-      // Save verified payment
       await Payment.create({
         bookingId: booking._id,
         serviceTitle: booking.serviceTitle,
@@ -215,7 +206,6 @@ const handleStripeWebhook = async (req, res) => {
         paidAt: new Date(),
       });
 
-      // Update booking payment status
       await Booking.updateOne(
         {
           _id: booking._id,
@@ -245,7 +235,53 @@ const handleStripeWebhook = async (req, res) => {
   }
 };
 
+// Customer: Get My Payment History
+const getMyPayments = async (req, res) => {
+  try {
+    const payments = await Payment.find({
+      customerEmail: req.user.email,
+    }).sort({ paidAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      total: payments.length,
+      payments,
+    });
+  } catch (error) {
+    console.error("Get My Payments Error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch payment history!",
+    });
+  }
+};
+
+// Admin: Get All Payments
+const getAllPayments = async (req, res) => {
+  try {
+    const payments = await Payment.find().sort({
+      paidAt: -1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      total: payments.length,
+      payments,
+    });
+  } catch (error) {
+    console.error("Get All Payments Error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch all payments!",
+    });
+  }
+};
+
 module.exports = {
   createCheckoutSession,
   handleStripeWebhook,
+  getMyPayments,
+  getAllPayments,
 };
