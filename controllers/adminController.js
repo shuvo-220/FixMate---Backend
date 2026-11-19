@@ -27,7 +27,7 @@ const getUserIdFilter = (id) => {
   return { $or: filters };
 };
 
-// 1. Get All Pending Services (Admin)
+// 1. Get All Pending Services
 const getPendingServices = async (req, res) => {
   try {
     const services = await Service.find({
@@ -47,7 +47,7 @@ const getPendingServices = async (req, res) => {
   }
 };
 
-// 2. Approve Service (Admin)
+// 2. Approve Service
 const approveService = async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
@@ -83,7 +83,7 @@ const approveService = async (req, res) => {
   }
 };
 
-// 3. Reject Service (Admin)
+// 3. Reject Service
 const rejectService = async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
@@ -119,7 +119,7 @@ const rejectService = async (req, res) => {
   }
 };
 
-// 4. Get All Users (Admin)
+// 4. Get All Users
 const getAllUsers = async (req, res) => {
   try {
     const users = await getUserCollection()
@@ -156,7 +156,7 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// 5. Update User Role (Admin)
+// 5. Update User Role
 const updateUserRole = async (req, res) => {
   try {
     const { role } = req.body;
@@ -243,7 +243,7 @@ const updateUserRole = async (req, res) => {
   }
 };
 
-// 6. Get All Bookings (Admin)
+// 6. Get All Bookings
 const getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({})
@@ -262,6 +262,129 @@ const getAllBookings = async (req, res) => {
   }
 };
 
+// 7. Get All Services with Search, Filter and Sorting
+const getAllServices = async (req, res) => {
+  try {
+    const {
+      search,
+      category,
+      approvalStatus,
+      isAvailable,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const filter = {};
+
+    // Search
+    if (search) {
+      const escapedSearch = search.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      const searchRegex = new RegExp(escapedSearch, "i");
+
+      filter.$or = [
+        { title: searchRegex },
+        { description: searchRegex },
+        { technicianName: searchRegex },
+        { technicianEmail: searchRegex },
+      ];
+    }
+
+    // Category Filter
+    if (category) {
+      const allowedCategories = [
+        "Smartphone",
+        "Laptop & PC",
+        "AC",
+        "Refrigerator",
+        "TV",
+        "Washing Machine",
+        "Electrical",
+      ];
+
+      if (!allowedCategories.includes(category)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid service category!",
+        });
+      }
+
+      filter.category = category;
+    }
+
+    // Approval Status Filter
+    if (approvalStatus) {
+      const allowedStatuses = [
+        "pending",
+        "approved",
+        "rejected",
+      ];
+
+      if (!allowedStatuses.includes(approvalStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid approval status!",
+        });
+      }
+
+      filter.approvalStatus = approvalStatus;
+    }
+
+    // Availability Filter
+    if (isAvailable !== undefined) {
+      if (!["true", "false"].includes(isAvailable)) {
+        return res.status(400).json({
+          success: false,
+          message: "isAvailable must be true or false!",
+        });
+      }
+
+      filter.isAvailable = isAvailable === "true";
+    }
+
+    // Sorting
+    const allowedSortFields = [
+      "createdAt",
+      "basePrice",
+      "title",
+    ];
+
+    if (!allowedSortFields.includes(sortBy)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sort field!",
+      });
+    }
+
+    if (!["asc", "desc"].includes(order)) {
+      return res.status(400).json({
+        success: false,
+        message: "Order must be asc or desc!",
+      });
+    }
+
+    const sortOrder = order === "asc" ? 1 : -1;
+
+    const services = await Service.find(filter).sort({
+      [sortBy]: sortOrder,
+    });
+
+    res.status(200).json({
+      success: true,
+      total: services.length,
+      services,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getPendingServices,
   approveService,
@@ -269,4 +392,5 @@ module.exports = {
   getAllUsers,
   updateUserRole,
   getAllBookings,
+  getAllServices,
 };
