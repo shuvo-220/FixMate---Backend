@@ -24,7 +24,47 @@ const getUserIdFilter = (id) => {
   return { $or: filters };
 };
 
-// Update User Profile
+// Get Own Profile
+const getProfile = async (req, res) => {
+  try {
+    const collection = getUserCollection();
+    const userFilter = getUserIdFilter(req.user.id);
+
+    const user = await collection.findOne(userFilter, {
+      projection: {
+        name: 1,
+        email: 1,
+        role: 1,
+        phone: 1,
+        area: 1,
+        bio: 1,
+        image: 1,
+        emailVerified: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Update Own Profile
 const updateProfile = async (req, res) => {
   try {
     const { name, phone, area, bio, image } = req.body;
@@ -39,7 +79,6 @@ const updateProfile = async (req, res) => {
 
     const updateData = {};
 
-    // Only update fields provided by the user
     for (const [key, value] of Object.entries(allowedFields)) {
       if (value !== undefined) {
         if (typeof value !== "string") {
@@ -53,18 +92,13 @@ const updateProfile = async (req, res) => {
       }
     }
 
-    // Name validation
-    if (
-      updateData.name !== undefined &&
-      !updateData.name
-    ) {
+    if (updateData.name !== undefined && !updateData.name) {
       return res.status(400).json({
         success: false,
         message: "Name cannot be empty!",
       });
     }
 
-    // Field length validation
     const maxLengths = {
       name: 100,
       phone: 20,
@@ -93,7 +127,6 @@ const updateProfile = async (req, res) => {
     }
 
     const collection = getUserCollection();
-
     const userFilter = getUserIdFilter(req.user.id);
 
     const user = await collection.findOne(userFilter);
@@ -112,23 +145,20 @@ const updateProfile = async (req, res) => {
       },
     });
 
-    const updatedUser = await collection.findOne(
-      userFilter,
-      {
-        projection: {
-          name: 1,
-          email: 1,
-          role: 1,
-          phone: 1,
-          area: 1,
-          bio: 1,
-          image: 1,
-          emailVerified: 1,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      }
-    );
+    const updatedUser = await collection.findOne(userFilter, {
+      projection: {
+        name: 1,
+        email: 1,
+        role: 1,
+        phone: 1,
+        area: 1,
+        bio: 1,
+        image: 1,
+        emailVerified: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
 
     res.status(200).json({
       success: true,
@@ -144,5 +174,6 @@ const updateProfile = async (req, res) => {
 };
 
 module.exports = {
+  getProfile,
   updateProfile,
 };
