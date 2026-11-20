@@ -174,7 +174,7 @@ const getMyServices = async (req, res) => {
 // 5. Update Own Service (Technician)
 const updateService = async (req, res) => {
   try {
-    const allowedFields = [
+    const editableFields = [
       "title",
       "category",
       "description",
@@ -183,16 +183,20 @@ const updateService = async (req, res) => {
       "estimatedDuration",
       "serviceMode",
       "serviceArea",
-      "isAvailable",
     ];
 
     const updateData = {};
 
-    allowedFields.forEach((field) => {
+    editableFields.forEach((field) => {
       if (req.body[field] !== undefined) {
         updateData[field] = req.body[field];
       }
     });
+
+    // Availability can be updated separately
+    if (req.body.isAvailable !== undefined) {
+      updateData.isAvailable = req.body.isAvailable;
+    }
 
     const service = await Service.findOne({
       _id: req.params.id,
@@ -208,14 +212,23 @@ const updateService = async (req, res) => {
 
     Object.assign(service, updateData);
 
-    // Updated service requires admin approval again
-    service.approvalStatus = "pending";
+    // Only actual service detail edits require admin approval again.
+    // Availability-only changes will not reset approval status.
+    const hasServiceDetailsChanged = editableFields.some(
+      (field) => req.body[field] !== undefined
+    );
+
+    if (hasServiceDetailsChanged) {
+      service.approvalStatus = "pending";
+    }
 
     await service.save();
 
     res.status(200).json({
       success: true,
-      message: "Service updated. Waiting for admin approval again.",
+      message: hasServiceDetailsChanged
+        ? "Service updated. Waiting for admin approval again."
+        : "Service availability updated successfully!",
       service,
     });
   } catch (error) {
@@ -225,6 +238,7 @@ const updateService = async (req, res) => {
     });
   }
 };
+
 
 // 6. Delete Own Service (Technician)
 const deleteService = async (req, res) => {

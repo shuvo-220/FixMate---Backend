@@ -49,6 +49,9 @@ const createCheckoutSession = async (req, res) => {
       });
     }
 
+    // BDT uses 2 decimal places in Stripe
+    const stripeAmount = Math.round(amount * 100);
+
     const stripe = getStripe();
 
     const clientURL =
@@ -56,18 +59,22 @@ const createCheckoutSession = async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+
       customer_email: booking.customerEmail,
 
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "bdt",
+
             product_data: {
               name: booking.serviceTitle,
               description: `FixMate repair service - Booking ID: ${booking._id}`,
             },
-            unit_amount: Math.round(amount * 100),
+
+            unit_amount: stripeAmount,
           },
+
           quantity: 1,
         },
       ],
@@ -85,6 +92,7 @@ const createCheckoutSession = async (req, res) => {
       },
 
       success_url: `${clientURL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+
       cancel_url: `${clientURL}/payment/cancel`,
     });
 
@@ -99,16 +107,24 @@ const createCheckoutSession = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to create checkout session!",
+      message: error.message || "Failed to create checkout session!",
     });
   }
 };
+
 
 // Stripe Webhook
 const handleStripeWebhook = async (req, res) => {
   const stripe = getStripe();
 
   let event;
+  console.log("Webhook Debug:", {
+    isBuffer: Buffer.isBuffer(req.body),
+    bodyLength: req.body?.length,
+    hasSignature: !!req.headers["stripe-signature"],
+    hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+    secretFormat: process.env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_"),
+  });
 
   try {
     const signature = req.headers["stripe-signature"];
@@ -163,11 +179,20 @@ const handleStripeWebhook = async (req, res) => {
         Number(booking.finalAmount) * 100
       );
 
+      // Verify payment details
       if (
         booking.status !== "completed" ||
-        session.currency !== "usd" ||
+        session.currency !== "bdt" ||
         session.amount_total !== expectedAmount
       ) {
+        console.error("Payment verification failed:", {
+          bookingId,
+          expectedCurrency: "bdt",
+          receivedCurrency: session.currency,
+          expectedAmount,
+          receivedAmount: session.amount_total,
+        });
+
         return res.status(400).json({
           success: false,
           message: "Payment verification failed!",
@@ -191,6 +216,7 @@ const handleStripeWebhook = async (req, res) => {
         });
       }
 
+      // Save payment
       await Payment.create({
         bookingId: booking._id,
         serviceTitle: booking.serviceTitle,
@@ -198,14 +224,18 @@ const handleStripeWebhook = async (req, res) => {
         customerEmail: booking.customerEmail,
         technicianName: booking.technicianName,
         technicianEmail: booking.technicianEmail,
+
         amount: booking.finalAmount,
-        currency: "usd",
+        currency: "bdt",
+
         transactionId: session.payment_intent,
         stripeSessionId: session.id,
+
         paymentStatus: "paid",
         paidAt: new Date(),
       });
 
+      // Update booking payment status
       await Booking.updateOne(
         {
           _id: booking._id,
@@ -219,7 +249,7 @@ const handleStripeWebhook = async (req, res) => {
         }
       );
 
-      console.log("Stripe payment processed:", session.id);
+      console.log("Stripe BDT payment processed:", session.id);
     }
 
     return res.status(200).json({
@@ -234,6 +264,7 @@ const handleStripeWebhook = async (req, res) => {
     });
   }
 };
+
 
 // Customer: Get My Payment History
 const getMyPayments = async (req, res) => {
@@ -257,6 +288,7 @@ const getMyPayments = async (req, res) => {
   }
 };
 
+
 // Admin: Get All Payments
 const getAllPayments = async (req, res) => {
   try {
@@ -278,6 +310,7 @@ const getAllPayments = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   createCheckoutSession,
