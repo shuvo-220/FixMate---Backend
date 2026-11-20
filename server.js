@@ -8,6 +8,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const imageRoutes = require("./routes/imageRoutes");
 
 const {
   handleStripeWebhook,
@@ -58,6 +59,7 @@ const startServer = async () => {
     app.use("/api/bookings", bookingRoutes);
     app.use("/api/payments", paymentRoutes);
     app.use("/api/profile", profileRoutes);
+    app.use("/api/images", imageRoutes);
 
     const PORT = process.env.PORT || 5000;
 
