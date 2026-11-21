@@ -22,8 +22,10 @@ export const createAuth = () => {
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
 
+    // Trusted Origins
     trustedOrigins: [
-      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "https://fix-mate-frontend-theta.vercel.app",
     ],
 
     // Email and Password Authentication
