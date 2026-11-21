@@ -22,6 +22,15 @@ export const createAuth = () => {
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
 
+    // Cross-site Cookie Configuration
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: "none",
+        secure: true,
+        httpOnly: true,
+      },
+    },
+
     // Trusted Origins
     trustedOrigins: [
       "http://localhost:3000",
